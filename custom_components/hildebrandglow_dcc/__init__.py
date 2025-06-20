@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-from glowmarkt import BrightClient
+from .glowmarkt import BrightClient
 import requests
 
 from homeassistant.config_entries import ConfigEntry
