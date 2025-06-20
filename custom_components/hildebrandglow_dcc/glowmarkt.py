@@ -250,6 +250,25 @@ class BrightClient:
             for v in resp["data"] if v[1] is not None   # v[1] is None when nulls=1 and no data exists, so it simply wont be included in the returned list
         ]
 
+
+    def catchup(self, resource):
+
+        # Tried it against the API, no data is returned
+
+        headers = {
+            "Content-Type": "application/json",
+            "applicationId": self.application,
+            "token": self.token
+        }
+
+        url = f"{self.url}resource/{resource}/catchup"
+
+        resp = self.session.get(url, headers=headers)
+        resp.raise_for_status()
+        resp = resp.json()
+
+        return resp
+
     def get_tariff(self, resource):
 
         headers = {
