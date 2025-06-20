@@ -58,6 +58,8 @@ class Resource:
         return self.client.get_tariff(self.id)
     def round(self, when, period):
         return self.client.round(when, period)
+    def catchup(self):
+        return self.client.catchup(self.id)
 
 class BrightClient:
     def __init__(self, username, password):
