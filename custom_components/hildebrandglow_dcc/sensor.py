@@ -476,6 +476,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 cost_sensor.meter = meters["electricity.consumption"]
                 entities.append(cost_sensor)
 
-    async_add_entities(entities)
+    async_add_entities(entities, update_before_add=True)
 
     return True
