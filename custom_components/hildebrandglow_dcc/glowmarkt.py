@@ -3,6 +3,8 @@ import requests
 import json
 import datetime
 
+# TODO: Custom exceptions
+# TODO: Enum
 PT1M = "PT1M"
 PT30M = "PT30M"
 PT1H = "PT1H"
@@ -64,7 +66,6 @@ class BrightClient:
         self.application = "b0f1b774-a586-4f72-9edd-27ead8aa7a8d"
         self.url = "https://api.glowmarkt.com/api/v0-1/"
         self.session = requests.Session()
-
         self.token = self.authenticate()
 
     def authenticate(self):
@@ -85,10 +86,7 @@ class BrightClient:
         resp.raise_for_status()
         resp = resp.json()
 
-        if resp["valid"] == False:
-            raise RuntimeError("Expected an authentication token")
-
-        if "token" not in resp:
+        if resp["valid"] == False or "token" not in resp:
             raise RuntimeError("Expected an authentication token")
 
         return resp["token"]
@@ -149,7 +147,6 @@ class BrightClient:
             r.classifier = elt["classifier"]
             r.description = elt["description"]
             r.base_unit = elt["baseUnit"]
-
             r.client = self
 
             resources.append(r)
@@ -183,9 +180,25 @@ class BrightClient:
                                 second=0,
                                 microsecond=0)
         else:
-            raise RuntimeError("Period %s not known" % period)
+            raise ValueError("Period %s not known" % period)
 
         return when
+
+    def catchup(self, resource):
+
+        headers = {
+            "Content-Type": "application/json",
+            "applicationId": self.application,
+            "token": self.token
+        }
+
+        url = f"{self.url}resource/{resource}/catchup"
+
+        resp = self.session.get(url, headers=headers)
+        resp.raise_for_status()
+        resp = resp.json()
+
+        return resp
 
     def get_readings(self, resource, t_from, t_to, period, func="sum", nulls=False):
 
@@ -201,12 +214,12 @@ class BrightClient:
             """Converts a date or naive datetime instance to a timezone aware datetime instance in UTC and returns a time string in UTC. If its already timezone aware, it will still convert to UTC"""
             if isinstance(x, datetime.datetime):
                 x = x.astimezone(utc)  # Converts local timezone with DST, or pre-specified timezones into UTC
-                return x.replace(tzinfo=None).isoformat()   # Remove TZ data without conversion (it's alreadu in UTC), then return ISO string format
+                return x.replace(tzinfo=None).isoformat()   # Remove TZ data without conversion (it's already in UTC), then return ISO string format
             elif isinstance(x, datetime.date):
                 x = datetime.datetime.combine(x, datetime.time()).astimezone(utc)   # Adds midnight time components (assumed in local timezone) and converts to UTC
                 return x.replace(tzinfo=None).isoformat()   # Would be similar to t_to.isoformat()[:19] where the +01:00 part is just truncated
             else:
-                raise RuntimeError("to_from/t_to should be date/datetime")
+                raise ValueError("to_from/t_to should be date/datetime")
 
         # Convert to UTC datetimes, conversion will handle tz/dst conversions
         t_from = time_string(t_from)
@@ -252,13 +265,11 @@ class BrightClient:
 
         resp = self.session.get(url, headers=headers)
         resp.raise_for_status()
-
         resp = resp.json()
 
         ts = []
 
         for elt in resp["data"]:
-
             t = Tariff()
             t.name = elt["name"]
             t.commodity = elt["commodity"]
