@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from glowmarkt import BrightClient
+from .glowmarkt import BrightClient
 import requests
 import voluptuous as vol
 

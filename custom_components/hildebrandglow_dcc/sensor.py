@@ -1,13 +1,14 @@
 """Platform for sensor integration."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime, time, timedelta
+from datetime import timedelta
 import logging
 from abc import ABC, abstractmethod
 
 import requests
-
+from .glowmarkt import P1D, PT1M
 from homeassistant.util import dt as dt_util
 
 from homeassistant.components.sensor import (
@@ -30,7 +31,6 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(minutes=15)
 
-# --- COORDINATOR CLASSES ---
 
 class DataCoordinator(DataUpdateCoordinator):
     """Data update coordinator for daily usage and cost sensors."""
@@ -61,7 +61,8 @@ class DataCoordinator(DataUpdateCoordinator):
             if "Request failed" in str(ex):
                 _LOGGER.warning(
                     "Non-200 Status Code fetching daily data. The Glow API may be experiencing issues for %s: %s",
-                    self.resource.classifier, ex
+                    self.resource.classifier,
+                    ex,
                 )
             else:
                 _LOGGER.exception("Unexpected exception fetching daily data: %s", ex)
@@ -76,8 +77,8 @@ class TariffCoordinator(DataUpdateCoordinator):
         super().__init__(
             hass,
             _LOGGER,
-            name=f"Tariff Data {resource.classifier}", # More specific name for logging
-            update_interval=timedelta(minutes=60), # Or your desired tariff update interval
+            name=f"Tariff Data {resource.classifier}",  # More specific name for logging
+            update_interval=timedelta(minutes=60),  # Or your desired tariff update interval
         )
         self.resource = resource
 
@@ -91,12 +92,10 @@ class TariffCoordinator(DataUpdateCoordinator):
                 # Raise UpdateFailed to mark coordinator unavailable and propagate to sensors.
                 raise UpdateFailed(f"No tariff data received for {self.resource.classifier}")
             return tariff
-        except Exception as ex: # Catch any exceptions that might have been re-raised or not caught by tariff_data
+        except Exception as ex:  # Catch any exceptions that might have been re-raised or not caught by tariff_data
             _LOGGER.exception("Error fetching tariff data for %s: %s", self.resource.classifier, ex)
             raise UpdateFailed(f"Failed to fetch tariff data: {ex}") from ex
 
-
-# --- HELPER FUNCTIONS ---
 
 def supply_type(resource) -> str:
     """Return supply type."""
@@ -127,19 +126,17 @@ async def daily_data(hass: HomeAssistant, resource) -> float:
     # NOTE: Re-evaluate this logic for TOTAL_INCREASING if the API provides absolute cumulative values.
     # The current logic sums daily values, which might not be suitable for TOTAL_INCREASING.
     # TOTAL_INCREASING expects a monotonically increasing total.
-    t_from = await hass.async_add_executor_job(resource.round, now , "P1D")
+    t_from = await hass.async_add_executor_job(resource.round, now, P1D)
     # Round the real 'now' to the minute using dt_util.now()
-    t_to = await hass.async_add_executor_job(resource.round, now, "PT1M")
+    t_to = await hass.async_add_executor_job(resource.round, now, PT1M)
     # define the number of minutes to request the data offset, as described in the API for data
-    #Note: offset is how many minutes behind UTC we are.
+    # Note: offset is how many minutes behind UTC we are.
     utc_offset = -int(dt_util.now().utcoffset().total_seconds() / 60)
     _LOGGER.debug("UTC offset is: %s", utc_offset)
 
     try:
         _LOGGER.debug("Get readings from %s to %s for %s when now= %s", t_from, t_to, resource.classifier, now)
-        readings = await hass.async_add_executor_job(
-            resource.get_readings, t_from, t_to, "P1D", "sum", utc_offset
-        )
+        readings = await hass.async_add_executor_job(resource.get_readings, t_from, t_to, P1D, "sum", utc_offset)
         _LOGGER.debug("Successfully got daily usage for resource id %s", resource.id)
         _LOGGER.debug("Readings for %s has %s entries", resource.classifier, len(readings))
         if len(readings) == 0:
@@ -149,8 +146,8 @@ async def daily_data(hass: HomeAssistant, resource) -> float:
             v = readings[0][1].value
             _LOGGER.debug("%s First reading %s at %s", resource.classifier, readings[0][0], readings[0][1].value)
         if len(readings) > 1:
-            _LOGGER.debug("%s Second reading %s at %s", resource.classifier, readings[1][0], readings[1][1].value )
-            v +=  readings[1][1].value
+            _LOGGER.debug("%s Second reading %s at %s", resource.classifier, readings[1][0], readings[1][1].value)
+            v += readings[1][1].value
         return v
     except requests.Timeout as ex:
         _LOGGER.error("Timeout: %s", ex)
@@ -158,14 +155,13 @@ async def daily_data(hass: HomeAssistant, resource) -> float:
         _LOGGER.error("Cannot connect: %s", ex)
     except Exception as ex:  # pylint: disable=broad-except
         if "Request failed" in str(ex):
-            _LOGGER.warning(
-                "Non-200 Status Code. The Glow API may be experiencing issues"
-            )
+            _LOGGER.warning("Non-200 Status Code. The Glow API may be experiencing issues")
         else:
             _LOGGER.exception("Unexpected exception: %s. Please open an issue", ex)
     return None
 
-async def tariff_data(hass: HomeAssistant, resource): # Removed -> float hint; it returns an object
+
+async def tariff_data(hass: HomeAssistant, resource):  # Removed -> float hint; it returns an object
     """Get tariff data from the API."""
     try:
         tariff = await hass.async_add_executor_job(resource.get_tariff)
@@ -183,24 +179,26 @@ async def tariff_data(hass: HomeAssistant, resource): # Removed -> float hint; i
             supply,
             resource.id,
         )
-        return None # Explicitly return None on this specific condition
+        return None  # Explicitly return None on this specific condition
     except requests.Timeout as ex:
         _LOGGER.error("Timeout fetching tariff data for %s: %s", resource.classifier, ex)
-        return None # Let coordinator handle UpdateFailed
+        return None  # Let coordinator handle UpdateFailed
     except requests.exceptions.ConnectionError as ex:
         _LOGGER.error("Connection error fetching tariff data for %s: %s", resource.classifier, ex)
-        return None # Let coordinator handle UpdateFailed
+        return None  # Let coordinator handle UpdateFailed
     except Exception as ex:  # pylint: disable=broad-except
         if "Request failed" in str(ex):
             _LOGGER.warning(
-                "Non-200 Status Code. The Glow API may be experiencing issues for tariff %s: %s", resource.classifier, ex
+                "Non-200 Status Code. The Glow API may be experiencing issues for tariff %s: %s",
+                resource.classifier,
+                ex,
             )
         else:
-            _LOGGER.exception("Unexpected exception fetching tariff data for %s: %s. Please open an issue", resource.classifier, ex)
-        return None # Let coordinator handle UpdateFailed
+            _LOGGER.exception(
+                "Unexpected exception fetching tariff data for %s: %s. Please open an issue", resource.classifier, ex
+            )
+        return None  # Let coordinator handle UpdateFailed
 
-
-# --- SENSOR BASE CLASS ---
 
 class GlowDCCSensor(CoordinatorEntity, SensorEntity, ABC):
     """Base class for Hildebrand Glow DCC sensors."""
@@ -214,7 +212,7 @@ class GlowDCCSensor(CoordinatorEntity, SensorEntity, ABC):
     def device_info(self) -> DeviceInfo:
         """Return device information."""
         identifier_resource = self.resource
-        if hasattr(self, 'meter') and self.meter is not None:
+        if hasattr(self, "meter") and self.meter is not None:
             identifier_resource = self.meter.resource
 
         return DeviceInfo(
@@ -236,8 +234,6 @@ class GlowDCCSensor(CoordinatorEntity, SensorEntity, ABC):
         """Abstract method to set the native value based on coordinator data."""
         pass
 
-
-# --- SENSOR CLASSES ---
 
 class Usage(GlowDCCSensor):
     """Sensor object for daily usage."""
@@ -287,7 +283,7 @@ class Cost(GlowDCCSensor):
         self._attr_native_value = round(data / 100, 2)
 
 
-class Standing(CoordinatorEntity, SensorEntity): # Standing and Rate were moved up
+class Standing(CoordinatorEntity, SensorEntity):  # Standing and Rate were moved up
     """An entity using CoordinatorEntity.
     The CoordinatorEntity class provides:
       should_poll
@@ -315,9 +311,7 @@ class Standing(CoordinatorEntity, SensorEntity): # Standing and Rate were moved 
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         if self.coordinator.data:
-            value = (
-                float(self.coordinator.data.current_rates.standing_charge.value) / 100
-            )
+            value = float(self.coordinator.data.current_rates.standing_charge.value) / 100
             self._attr_native_value = round(value, 4)
             self.async_write_ha_state()
 
@@ -332,7 +326,7 @@ class Standing(CoordinatorEntity, SensorEntity): # Standing and Rate were moved 
         )
 
 
-class Rate(CoordinatorEntity, SensorEntity): # Standing and Rate were moved up
+class Rate(CoordinatorEntity, SensorEntity):  # Standing and Rate were moved up
     """An entity using CoordinatorEntity.
     The CoordinatorEntity class provides:
       should_poll
@@ -376,11 +370,7 @@ class Rate(CoordinatorEntity, SensorEntity): # Standing and Rate were moved up
         )
 
 
-# --- ASYNC SETUP ENTRY FUNCTION ---
-
-async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: Callable
-) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: Callable) -> bool:
     """Set up the sensor platform."""
     entities: list = []
     meters: dict = {}
@@ -390,9 +380,7 @@ async def async_setup_entry(
 
     virtual_entities: dict = {}
     try:
-        virtual_entities = await hass.async_add_executor_job(
-            glowmarkt.get_virtual_entities
-        )
+        virtual_entities = await hass.async_add_executor_job(glowmarkt.get_virtual_entities)
         _LOGGER.debug("Successful GET to %svirtualentity", glowmarkt.url)
     except requests.Timeout as ex:
         _LOGGER.error("Timeout: %s", ex)
@@ -400,9 +388,7 @@ async def async_setup_entry(
         _LOGGER.error("Cannot connect: %s", ex)
     except Exception as ex:
         if "Request failed" in str(ex):
-            _LOGGER.error(
-                "Non-200 Status Code. The Glow API may be experiencing issues"
-            )
+            _LOGGER.error("Non-200 Status Code. The Glow API may be experiencing issues")
         else:
             _LOGGER.exception("Unexpected exception: %s. Please open an issue", ex)
 
@@ -421,9 +407,7 @@ async def async_setup_entry(
             _LOGGER.error("Cannot connect: %s", ex)
         except Exception as ex:
             if "Request failed" in str(ex):
-                _LOGGER.error(
-                    "Non-200 Status Code. The Glow API may be experiencing issues"
-                )
+                _LOGGER.error("Non-200 Status Code. The Glow API may be experiencing issues")
             else:
                 _LOGGER.exception("Unexpected exception: %s. Please open an issue", ex)
 
