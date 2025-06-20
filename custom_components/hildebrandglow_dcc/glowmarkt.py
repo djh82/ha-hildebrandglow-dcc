@@ -56,8 +56,6 @@ class Resource:
         return self.client.get_tariff(self.id)
     def round(self, when, period):
         return self.client.round(when, period)
-    def catchup(self):
-        return self.client.catchup(self.id)
 
 class BrightClient:
     def __init__(self, username, password):
@@ -112,24 +110,13 @@ class BrightClient:
         ves = []
 
         for elt in resp:
-
             ve = VirtualEntity()
-
             ve.client = self
-
             ve.application = elt["applicationId"]
             ve.type_id = elt["veTypeId"]
             ve.id = elt["veId"]
-
-            if "postalCode" in elt:
-                ve.postal_code = elt["postalCode"]
-            else:
-                ve.postal_code = None
-
-            if "name" in elt:
-                ve.name = elt["name"]
-            else:
-                ve.name = None
+            ve.postal_code = elt.get("postalCode")
+            ve.name = elt.get("name")
             
             if ve.name == "Expired":
                 continue
@@ -252,25 +239,6 @@ class BrightClient:
              cls(v[1])]
             for v in resp["data"] if v[1] is not None   # v[1] is None when nulls=1 and no data exists, so it simply wont be included in the returned list
         ]
-
-
-    def catchup(self, resource):
-
-        # Tried it against the API, no data is returned
-
-        headers = {
-            "Content-Type": "application/json",
-            "applicationId": self.application,
-            "token": self.token
-        }
-
-        url = f"{self.url}resource/{resource}/catchup"
-
-        resp = self.session.get(url, headers=headers)
-        resp.raise_for_status()
-        resp = resp.json()
-
-        return resp
 
     def get_tariff(self, resource):
 
