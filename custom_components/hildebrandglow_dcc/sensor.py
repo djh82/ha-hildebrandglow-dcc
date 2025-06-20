@@ -390,22 +390,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     meters: dict = {}
     daily_coordinators: dict[str, DataCoordinator] = {}
 
-    glowmarkt = hass.data[DOMAIN][entry.entry_id]    # Tell Hildebrand to pull latest DCC data
-    try:
-        await hass.async_add_executor_job(resource.catchup)
-        _LOGGER.debug(
-            "Successful GET to https://api.glowmarkt.com/api/v0-1/resource/%s/catchup",
-            resource.id,
-        )
-    except requests.Timeout as ex:
-        _LOGGER.error("Timeout: %s", ex)
-    except requests.exceptions.ConnectionError as ex:
-        _LOGGER.error("Cannot connect: %s", ex)
-    except Exception as ex:  # pylint: disable=broad-except
-        if "Request failed" in str(ex):
-            _LOGGER.warning("Non-200 Status Code. The Glow API may be experiencing issues")
-        else:
-            _LOGGER.exception("Unexpected exception: %s. Please open an issue", ex)
+    glowmarkt = hass.data[DOMAIN][entry.entry_id]
 
     virtual_entities: dict = {}
     try:
