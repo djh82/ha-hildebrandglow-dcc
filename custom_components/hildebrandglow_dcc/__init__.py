@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-
+import asyncio
 from .glowmarkt import BrightClient
 import requests
 
@@ -38,7 +38,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Set API object
     hass.data[DOMAIN][entry.entry_id] = glowmarkt
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    try:
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    except (asyncio.TimeoutError, TimeoutException) as ex:
+        raise ConfigEntryNotReady(
+            f"Timeout while loading config entry for {PLATFORMS}"
+        ) from ex
+
 
     return True
 
