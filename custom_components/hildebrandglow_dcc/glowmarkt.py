@@ -130,6 +130,9 @@ class BrightClient:
                 ve.name = elt["name"]
             else:
                 ve.name = None
+            
+            if ve.name == "Expired":
+                continue
 
             ves.append(ve)
 
