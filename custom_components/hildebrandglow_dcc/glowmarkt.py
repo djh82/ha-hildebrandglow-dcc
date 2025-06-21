@@ -249,7 +249,9 @@ class BrightClient:
         url = f"{self.url}resource/{resource}/readings"
 
         resp = self.session.get(url, headers=headers, params=params)
-        if resp.status_code != requests.codes.ok:
+        if resp.status_code == requests.codes.unauthorized:
+            raise AuthorizationError("Unauthorized request for meter readings. Do you have consent?")
+        elif resp.status_code != requests.codes.ok:
             raise GlowmarktError(resp.status_code)
         resp = resp.json()
 
