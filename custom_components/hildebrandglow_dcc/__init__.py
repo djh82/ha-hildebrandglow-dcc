@@ -37,9 +37,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     else:
         _LOGGER.debug("Successful Post to %sauth", glowmarkt.url)
 
+    hass.data[DOMAIN] = {"postcode": entry.data.get("postcode")}
     # Set API object
     hass.data[DOMAIN][entry.entry_id] = glowmarkt
-    hass.data[DOMAIN] = {"postcode": entry.data.get("postcode")}
 
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
