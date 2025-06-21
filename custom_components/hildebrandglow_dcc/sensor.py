@@ -389,7 +389,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         _LOGGER.exception("Unexpected exception: %s. Please open an issue", ex)
 
     for virtual_entity in virtual_entities:
-        if postcode and virtual_entity.postal_code and virtual_entity.postal_code.lower().replace(" ", "") == postcode.lower().replace(" ", ""):
+        if postcode and virtual_entity.postal_code and virtual_entity.postal_code.lower().replace(" ", "") != postcode.lower().replace(" ", ""):
             _LOGGER.debug("Filtering virtual entity with postcode: %s", virtual_entity.postal_code)
             continue
         resources: dict = {}
