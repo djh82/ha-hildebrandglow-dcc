@@ -373,6 +373,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     glowmarkt = hass.data[DOMAIN][entry.entry_id]
     postcode = hass.data[DOMAIN]["postcode"]
 
+    _LOGGER.debug("Filtering virtual entities with postcode: %s", postcode)
+
     virtual_entities: dict = {}
     try:
         virtual_entities = await hass.async_add_executor_job(glowmarkt.get_virtual_entities)
@@ -387,7 +389,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         _LOGGER.exception("Unexpected exception: %s. Please open an issue", ex)
 
     for virtual_entity in virtual_entities:
-        if postcode and virtual_entity.postalCode == postcode:
+        if postcode and virtual_entity.postal_code and virtual_entity.postal_code.lower().replace(" ", "") == postcode.lower().replace(" ", ""):
+            _LOGGER.debug("Filtering virtual entity with postcode: %s", virtual_entity.postal_code)
             continue
         resources: dict = {}
         try:
@@ -401,8 +404,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             _LOGGER.error("Timeout: %s", ex)
         except requests.exceptions.ConnectionError as ex:
             _LOGGER.error("Cannot connect: %s", ex)
-        except GlowmarktError:
-            _LOGGER.error("Non-200 Status Code. The Glow API may be experiencing issues")
+        except GlowmarktError as ex:
+            _LOGGER.error("Non-200 Status Code. The Glow API may be experiencing issues", ex)
         except Exception as ex:
             _LOGGER.exception("Unexpected exception: %s. Please open an issue", ex)
 
