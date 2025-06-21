@@ -13,6 +13,12 @@ P1W = "P1W"
 P1M = "P1M"
 P1Y = "P1Y"
 
+class GlowmarktError(Exception):
+    pass
+
+class AuthorizationError(GlowmarktError):
+    pass
+
 class Rate:
     pass
 
@@ -85,11 +91,15 @@ class BrightClient:
         url = f"{self.url}auth"
 
         resp = self.session.post(url, headers=headers, data=json.dumps(data))
-        resp.raise_for_status()
+        if resp.status_code == requests.codes.unauthorized:
+            raise AuthorizationError()
+        elif resp.status_code != requests.codes.ok:
+            raise GlowmarktError(resp.status_code)
+
         resp = resp.json()
 
         if resp["valid"] == False or "token" not in resp:
-            raise RuntimeError("Expected an authentication token")
+            raise ValueError("Expected an authentication token")
 
         return resp["token"]
 
@@ -104,7 +114,8 @@ class BrightClient:
         url = f"{self.url}virtualentity"
 
         resp = self.session.get(url, headers=headers)
-        resp.raise_for_status()
+        if resp.status_code != requests.codes.ok:
+            raise GlowmarktError(resp.status_code)
         resp = resp.json()
 
         ves = []
@@ -117,9 +128,6 @@ class BrightClient:
             ve.id = elt["veId"]
             ve.postal_code = elt.get("postalCode")
             ve.name = elt.get("name")
-            
-            if ve.name == "Expired":
-                continue
 
             ves.append(ve)
 
@@ -136,7 +144,8 @@ class BrightClient:
         url = f"{self.url}virtualentity/{ve}/resources"
 
         resp = self.session.get(url, headers=headers)
-        resp.raise_for_status()
+        if resp.status_code != requests.codes.ok:
+            raise GlowmarktError(resp.status_code)
         resp = resp.json()
 
         resources = []
@@ -197,7 +206,8 @@ class BrightClient:
         url = f"{self.url}resource/{resource}/catchup"
 
         resp = self.session.get(url, headers=headers)
-        resp.raise_for_status()
+        if resp.status_code != requests.codes.ok:
+            raise GlowmarktError(resp.status_code)
         resp = resp.json()
 
         return resp
@@ -239,7 +249,8 @@ class BrightClient:
         url = f"{self.url}resource/{resource}/readings"
 
         resp = self.session.get(url, headers=headers, params=params)
-        resp.raise_for_status()
+        if resp.status_code != requests.codes.ok:
+            raise GlowmarktError(resp.status_code)
         resp = resp.json()
 
         if resp["units"] == "pence":
@@ -266,7 +277,8 @@ class BrightClient:
         url = f"{self.url}resource/{resource}/tariff"
 
         resp = self.session.get(url, headers=headers)
-        resp.raise_for_status()
+        if resp.status_code != requests.codes.ok:
+            raise GlowmarktError(resp.status_code)
         resp = resp.json()
 
         ts = []
