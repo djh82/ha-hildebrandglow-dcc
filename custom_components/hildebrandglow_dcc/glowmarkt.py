@@ -54,8 +54,8 @@ class Tariff:
     pass
 
 class Resource:
-    def get_readings(self, t_from, t_to, period, func="sum", nulls=False):
-        return self.client.get_readings(self.id, t_from, t_to, period, func, nulls)
+    def get_readings(self, t_from, t_to, period, offset=0, func="sum", nulls=False):
+        return self.client.get_readings(self.id, t_from, t_to, period, offset, func, nulls)
     def get_current(self):
         return self.client.get_current(self.id)
     def get_meter_reading(self):
@@ -212,7 +212,7 @@ class BrightClient:
 
         return resp
 
-    def get_readings(self, resource, t_from, t_to, period, func="sum", nulls=False):
+    def get_readings(self, resource, t_from, t_to, period, offset=0, func="sum", nulls=False):
 
         headers = {
             "Content-Type": "application/json",
@@ -241,7 +241,7 @@ class BrightClient:
             "from": t_from,
             "to": t_to,
             "period": period,
-            "offset": 0,    # Enforce UTC server side, because we handle TZ/DST conversions client side
+            "offset": offset,
             "function": func,
             "nulls": 1 if nulls else 0,     # nulls=1 will give None instead of Zero for missing data so its easy to discriminate between missing data or a genuine zero usage
         }

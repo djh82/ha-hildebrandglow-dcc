@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from datetime import timedelta
 import logging
@@ -141,9 +142,12 @@ async def daily_data(hass: HomeAssistant, resource) -> float:
     # Round the real 'now' to the minute using dt_util.now()
     t_to = await hass.async_add_executor_job(resource.round, now, PT1M)
 
+    offset = -(time.localtime().tm_gmtoff // 60)
+    _LOGGER.debug("UTC offset is: %s", offset)
+
     try:
         _LOGGER.debug("Get readings from %s to %s for %s when now= %s", t_from, t_to, resource.classifier, now)
-        readings = await hass.async_add_executor_job(resource.get_readings, t_from, t_to, P1D, "sum", True)
+        readings = await hass.async_add_executor_job(resource.get_readings, t_from, t_to, P1D, offset, "sum", True)
         _LOGGER.debug("Successfully got daily usage for resource id %s", resource.id)
         _LOGGER.debug("Readings for %s has %s entries", resource.classifier, len(readings))
         if not readings:
